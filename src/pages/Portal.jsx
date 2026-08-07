@@ -29,7 +29,6 @@ export default function Portal() {
   return (
     <>
       <DreamyBackground />
-     
 
       <div className="portal">
         <motion.div

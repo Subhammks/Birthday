@@ -21,7 +21,7 @@ export default function DreamyBackground() {
           z-index:-10;
 
           background-image:
-          url("/src/assets/happiness-bg.jpg");
+          url("/public/images/happiness-bg.jpg");
 
           background-size:cover;
           background-position:center;
