@@ -74,7 +74,6 @@ export default function FinalNote() {
           ↺ Replay Our Story
         </button>
       </div>
-  </div>
       <style>{`
 
         .finalNote{
@@ -337,6 +336,6 @@ export default function FinalNote() {
         }
 
       `}</style>
-    
+    </div>
   );
 }
