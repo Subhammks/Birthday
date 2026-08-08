@@ -337,6 +337,6 @@ export default function FinalNote() {
         }
 
       `}</style>
-    </div>
+    
   );
 }
