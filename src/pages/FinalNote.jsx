@@ -59,24 +59,15 @@ export default function FinalNote() {
         <div className="line line4">
           <Typewriter
             words={[
-              "I guess more beautiful memories are still waiting to be written.",
+              "I guess more beautiful memories are still waiting to be written
+                Arz kiya hai humne bhi Likha hai kuchh tere baare mein hai 
+                                     ऐसे तू लगे कि ग़ुलाब है",
             ]}
             loop={1}
             cursor={false}
             typeSpeed={35}
           />
         </div>
-          <div className="line line5">
-          <Typewriter
-            words={[
-              "Arz kiya hai,humne bhi Likha hai kuchh tere baare mein hai
-               ऐसे तू लगे कि ग़ुलाब है",
-             
-            ]}
-            loop={1}
-            cursor={false}
-            typeSpeed={35}
-          />
         </div>
 
         <h2 className="endingText">✨ Forever Your Biggest Fan ✨</h2>
