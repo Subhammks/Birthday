@@ -21,6 +21,8 @@ export default function Birthday() {
   const [showGift, setShowGift] = useState(false);
   const [showCake, setShowCake] = useState(false);
   const [cakeCut, setCakeCut] = useState(false);
+  const [showAgeReveal, setShowAgeReveal] = useState(false);
+  const [age, setAge] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -29,6 +31,27 @@ export default function Birthday() {
 
     return () => clearInterval(interval);
   }, []);
+  useEffect(() => {
+    if (!showAgeReveal) return;
+
+    let current = 0;
+
+    const timer = setInterval(() => {
+      current++;
+
+      setAge(current);
+
+      if (current >= 21) {
+        clearInterval(timer);
+
+        setTimeout(() => {
+          navigate("/final-note");
+        }, 10000);
+      }
+    }, 180);
+
+    return () => clearInterval(timer);
+  }, [showAgeReveal, navigate]);
 
   return (
     <>
@@ -82,8 +105,8 @@ export default function Birthday() {
                     setShowRain(true);
 
                     setTimeout(() => {
-                      setShowGift(true);
-                    }, 2500);
+                      setShowAgeReveal(true);
+                    }, 2000);
                   }}
                 >
                   🔪 CUT THE CAKE
@@ -108,13 +131,60 @@ export default function Birthday() {
                 <h1 className="celebrateText">HAPPY BIRTHDAY SU ❤️</h1>
 
                 <p>May all your wishes come true ✨</p>
-                <button
+                {/* <button
                   className="finalNoteBtn"
                   onClick={() => navigate("/final-note")}
                 >
                   💌 Read My Final Message
-                </button>
+                </button> */}
               </>
+            )}
+          </div>
+        )}
+        {showAgeReveal && (
+          <div className="ageReveal">
+            <div className="sparkleRing"></div>
+
+            <p className="storyText">From 09 August 2005 ✨</p>
+
+            <div className="profileWrapper">
+              <img
+                src="/images/su-bitmoji.png"
+                alt="Suhani"
+                className="birthdayBitmoji"
+              />
+
+              <div className="age3D">
+                {age}
+                <span className="yearsText">YEARS</span>
+              </div>
+            </div>
+
+            {age === 21 && (
+              <div className="birthdayStats">
+                <h2>🎂 HAPPY BIRTHDAY SU ❤️</h2>
+
+                <div className="statsRow">
+                  <div className="statCard">
+                    <span>21</span>
+                    <small>YEARS</small>
+                  </div>
+
+                  <div className="statCard">
+                    <span>252</span>
+                    <small>MONTHS</small>
+                  </div>
+
+                  <div className="statCard">
+                    <span>7670</span>
+                    <small>DAYS</small>
+                  </div>
+                  <br />
+                  <h3 className="birthdayLine">
+                    ✨ Of making the world brighter ✨
+                  </h3>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -224,6 +294,63 @@ export default function Birthday() {
   filter:
   drop-shadow(0 0 20px rgba(255,255,255,.4))
   drop-shadow(0 0 60px rgba(255,211,105,.6));
+}
+  .profileWrapper{
+  position:relative;
+
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+
+  margin:30px 0;
+}
+
+.birthdayBitmoji{
+  width:220px;
+  height:auto;
+
+  border-radius:50%;
+
+  object-fit:cover;
+
+  border:6px solid rgba(255,255,255,.15);
+
+  box-shadow:
+    0 0 30px rgba(255,255,255,.2),
+    0 0 80px rgba(255,0,110,.4),
+    0 0 150px rgba(131,56,236,.3);
+
+  animation:
+    bitmojiFloat 4s ease-in-out infinite,
+    bitmojiGlow 3s infinite;
+}
+
+@keyframes bitmojiFloat{
+  0%,100%{
+    transform:
+      translateY(0px)
+      scale(1);
+  }
+
+  50%{
+    transform:
+      translateY(-20px)
+      scale(1.03);
+  }
+}
+
+@keyframes bitmojiGlow{
+  50%{
+    box-shadow:
+      0 0 50px rgba(255,255,255,.3),
+      0 0 120px rgba(255,0,110,.6),
+      0 0 200px rgba(131,56,236,.5);
+  }
+}
+  .age3D{
+  margin-top:-50px;
+  z-index:20;
 }
   .star{
   position:absolute;
@@ -338,6 +465,155 @@ export default function Birthday() {
           box-shadow:
           0 0 40px rgba(255,0,110,.4);
         }
+          .ageReveal{
+  position:fixed;
+  inset:0;
+
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+
+  background:
+  radial-gradient(
+    circle,
+    rgba(255,0,110,.15),
+    rgba(10,10,30,.98)
+  );
+
+  backdrop-filter:blur(25px);
+
+  z-index:99999999;
+}
+
+.storyText{
+  color:#ffd369;
+
+  font-size:1.2rem;
+
+  letter-spacing:6px;
+
+  margin-bottom:20px;
+}
+
+.sparkleRing{
+  position:absolute;
+
+  width:400px;
+  height:400px;
+
+  border-radius:50%;
+
+  border:2px solid rgba(255,255,255,.15);
+
+  animation:rotateRing 12s linear infinite;
+}
+
+.age3D{
+  font-size:12rem;
+  font-weight:900;
+
+  color:white;
+
+  text-align:center;
+
+  text-shadow:
+  0 4px 0 #ff006e,
+  0 8px 0 #d9045d,
+  0 12px 0 #a10347,
+  0 0 50px rgba(255,0,110,.9),
+  0 0 120px rgba(255,0,110,.6);
+
+  animation:
+  ageEnter .5s ease,
+  floatAge 2s ease-in-out infinite;
+}
+
+.yearsText{
+  display:block;
+
+  font-size:1.5rem;
+
+  letter-spacing:8px;
+
+  color:#ffd369;
+
+  margin-top:-15px;
+}
+
+.birthdayStats{
+  text-align:center;
+  margin-top:30px;
+}
+
+.statsRow{
+  display:flex;
+  justify-content:center;
+  gap:20px;
+  flex-wrap:wrap;
+}
+
+.statCard{
+  padding:20px 30px;
+
+  border-radius:20px;
+
+  background:
+  rgba(255,255,255,.08);
+
+  backdrop-filter:blur(20px);
+
+  border:
+  1px solid rgba(255,255,255,.15);
+
+  box-shadow:
+  0 0 30px rgba(255,255,255,.08);
+}
+
+.statCard span{
+  display:block;
+
+  font-size:2.5rem;
+  font-weight:800;
+}
+
+.statCard small{
+  color:#ffd369;
+  letter-spacing:3px;
+}
+
+.birthdayLine{
+  margin-top:25px;
+  color:#ffd369;
+}
+
+@keyframes rotateRing{
+  from{
+    transform:rotate(0deg);
+  }
+
+  to{
+    transform:rotate(360deg);
+  }
+}
+
+@keyframes ageEnter{
+  from{
+    opacity:0;
+    transform:scale(.3);
+  }
+
+  to{
+    opacity:1;
+    transform:scale(1);
+  }
+}
+
+@keyframes floatAge{
+  50%{
+    transform:translateY(-15px);
+  }
+}
 
         .closeBtn{
           position:absolute;

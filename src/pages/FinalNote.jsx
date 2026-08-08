@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { Typewriter } from "react-simple-typewriter";
 
 export default function FinalNote() {
   const navigate = useNavigate();
@@ -14,20 +15,59 @@ export default function FinalNote() {
       <div className="orb orb3"></div>
 
       <div className="letter">
-        <h1>❤️ Happy Birthday Bachu ❤️</h1>
+        <h1>
+          <Typewriter
+            words={["❤️ Happy Birthday Bachu ❤️"]}
+            loop={1}
+            cursor
+            cursorStyle="|"
+            typeSpeed={80}
+            deleteSpeed={0}
+            delaySpeed={999999}
+          />
+        </h1>
 
-        <p>Tmare liye Mera Dher Sara PAYAR aur mera Sara WAQT.</p>
+        <div className="line line1">
+          <Typewriter
+            words={["Tmare liye Mera Dher Sara PAYAR aur mera Sara WAQT."]}
+            loop={1}
+            cursor={false}
+            typeSpeed={40}
+          />
+        </div>
 
-        <p>
-          Hamesa Khus Raho tm. Achhi lagti ho jab smile kerti ho, CUTU si smile
-          hai tmari.
-        </p>
+        <div className="line line2">
+          <Typewriter
+            words={[
+              "Hamesa Khus Raho tm. Achhi lagti ho jab smile kerti ho, CUTU si smile hai tmari.",
+            ]}
+            loop={1}
+            cursor={false}
+            typeSpeed={35}
+          />
+        </div>
 
-        <p>I am always there for u Su. ❤️</p>
+        <div className="line line3">
+          <Typewriter
+            words={["I am always there for u Su. ❤️"]}
+            loop={1}
+            cursor={false}
+            typeSpeed={40}
+          />
+        </div>
 
-        <p>I guess more beautiful memories are still waiting to be written.</p>
+        <div className="line line4">
+          <Typewriter
+            words={[
+              "I guess more beautiful memories are still waiting to be written.",
+            ]}
+            loop={1}
+            cursor={false}
+            typeSpeed={35}
+          />
+        </div>
 
-        <h2>✨ Forever Your Biggest Fan ✨</h2>
+        <h2 className="endingText">✨ Forever Your Biggest Fan ✨</h2>
 
         <button className="replayBtn" onClick={() => navigate("/")}>
           ↺ Replay Our Story

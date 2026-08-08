@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Typewriter } from "react-simple-typewriter";
 
 export default function Floor2() {
   const [selectedEmoji, setSelectedEmoji] = useState(null);
@@ -21,11 +22,29 @@ export default function Floor2() {
       <div className="memoryCard">
         <div className="memoryTag">MEMORY #02</div>
 
+        <div className="introLine">
+          <Typewriter
+            words={["Some conversations change everything..."]}
+            loop={1}
+            cursor={false}
+            typeSpeed={60}
+          />
+        </div>
+
         <h1 className="memoryTitle">That Night Conversations</h1>
 
         <p className="memoryText">
-          I don't know kya bolu mai usko Ek random coincidence ya already planned destiny.But jo bhi hua achha hua shayd agar us din baat nai huie hoti to shayd ajj bhi baat nai hoti aur aisa kuch nai ho raha hota. Wo puri raat ki long conversation that was literally mai explain nai ker sakta. Ek Random conversation jo ab favourite part of my day ban gaya hai. 
-          And before I realised it... you became special.
+          <Typewriter
+            words={[
+              " I don't know kya bolu mai usko Ek random coincidence ya already planned destiny.But jo bhi hua achha hua shayd agar us din baat nai huie hoti to shayd ajj bhi baat nai hoti aur aisa kuch nai ho raha hota. Wo puri raat ki long conversation that was literally mai explain nai ker sakta. Ek Random conversation jo ab favourite part of my day ban gaya hai.And before I realised it... you became special.",
+            ]}
+            loop={1}
+            cursor
+            cursorStyle="|"
+            typeSpeed={25}
+            deleteSpeed={0}
+            delaySpeed={999999}
+          />
         </p>
 
         <div className="messageBubble">💬 "Online..."</div>
@@ -86,6 +105,13 @@ export default function Floor2() {
           rgba(0,0,0,.85)
         );
       }
+        .introLine{
+  color:#7ec8ff;
+  font-size:1rem;
+  letter-spacing:3px;
+  margin-bottom:20px;
+  text-transform:uppercase;
+}
 
       .memoryCard{
         width:750px;

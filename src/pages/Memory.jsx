@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Typewriter } from "react-simple-typewriter";
 
 export default function Memory() {
   const [selectedEmoji, setSelectedEmoji] = useState(null);
@@ -26,8 +27,21 @@ export default function Memory() {
           <br />
           Among clues, laughter, confusion and endless running around...
           <br />I found my favourite person.
-          <br />Tum Hamesa bolti ho na maine tmarhi help nai ki aur tmko nai Jitya So, uske Liye Ek gift to banta hai na 
-          <br/>"Tmare Liye mai Hamesa Available Rahunga Su. You are always my first Priority"
+          <br />
+          Tum Hamesa bolti ho na maine tmarhi help nai ki aur tmko nai Jitya So,
+          uske Liye Ek gift to banta hai na
+          <br />
+          <Typewriter
+            words={[
+              "Mere Liye mai Hamesa Available Rahunga Su. You are always my first Priority",
+            ]}
+            loop={1}
+            cursor
+            cursorStyle="|"
+            typeSpeed={25}
+            deleteSpeed={0}
+            delaySpeed={999999}
+          />
         </p>
 
         <div className="reactionBox">

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Typewriter } from "react-simple-typewriter";
 
 export default function Floor3() {
   const [opened, setOpened] = useState(false);
@@ -38,9 +39,17 @@ export default function Floor3() {
 
             <p>Some people become memories.</p>
             <p>You became a part of my story.</p>
-            <p>Wo morning usko kya mai bolu. Wo meri College ki best memory hai aur usko koi replace nai ker sakta. Agar meko chance mile college ke kisi din ko wapas se jeene ko to mai hamesa us morning ko choose kerunga. Matlab mai us feeling ko explain nai ker sakta bas when i think about that morning mai khus ho jatta hu. Waise bhi bas wahi ek tmari memory hai mere pass. Kassh us subh kuch photos click ker liye hote tmaree...
-              Just like this as my favourite memory you will always my favourite person.
-            </p>
+            <Typewriter
+              words={[
+                "Wo morning usko kya mai bolu. Wo meri College ki best memory hai aur usko koi replace nai ker sakta. Agar meko chance mile college ke kisi din ko wapas se jeene ko to mai hamesa us morning ko choose kerunga. Matlab mai us feeling ko explain nai ker sakta bas when i think about that morning mai khus ho jatta hu. Waise bhi bas wahi ek tmari memory hai mere pass. Kassh us subh kuch photos click ker liye hote tmaree.. Just like this as my favourite memory you will always my favourite person.",
+              ]}
+              loop={1}
+              cursor
+              cursorStyle="|"
+              typeSpeed={25}
+              deleteSpeed={0}
+              delaySpeed={999999}
+            />
           </div>
         )}
       </div>

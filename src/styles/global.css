@@ -31,3 +31,95 @@ border: none;
 cursor: pointer;
 font-family: inherit;
 }
+
+/* MOBILE RESPONSIVE */
+
+*{
+  box-sizing:border-box;
+}
+
+img{
+  max-width:100%;
+  height:auto;
+}
+
+button{
+  max-width:100%;
+}
+
+body{
+  overflow-x:hidden;
+}
+
+@media (max-width:768px){
+
+  h1{
+    font-size:2.2rem !important;
+    line-height:1.2;
+  }
+
+  h2{
+    font-size:1.6rem !important;
+  }
+
+  p{
+    font-size:0.95rem !important;
+    line-height:1.8;
+  }
+
+  .heroSection,
+  .content,
+  .memoryCard,
+  .letter{
+    width:95% !important;
+    padding:25px !important;
+  }
+
+  .gallery{
+    flex-direction:column !important;
+    align-items:center !important;
+  }
+
+  .photo{
+    width:85vw !important;
+    height:auto !important;
+  }
+
+  .changingName{
+    font-size:3rem !important;
+  }
+
+  .cakeImage{
+    width:80vw !important;
+  }
+
+  .birthdayBitmoji{
+    width:160px !important;
+  }
+
+  .age3D{
+    font-size:5rem !important;
+  }
+
+  .statsRow{
+    flex-direction:column !important;
+    align-items:center !important;
+  }
+
+  .statCard{
+    width:90% !important;
+  }
+
+  .reactionBox{
+    flex-wrap:wrap !important;
+  }
+
+  .nextBtn,
+  .giftBtn,
+  .reactionBtn,
+  .cutCakeBtn,
+  .replayBtn{
+    width:100% !important;
+    max-width:350px;
+  }
+}
