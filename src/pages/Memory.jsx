@@ -33,7 +33,7 @@ export default function Memory() {
           <br />
           <Typewriter
             words={[
-              "Mere Liye mai Hamesa Available Rahunga Su. You are always my first Priority",
+              "Tumhare Liye mai Hamesa Available Rahunga Su. You are always my first Priority",
             ]}
             loop={1}
             cursor
