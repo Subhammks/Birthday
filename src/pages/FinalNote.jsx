@@ -67,7 +67,7 @@ export default function FinalNote() {
           />
         </div>
         </div>
-
+    </div>
         <h2 className="endingText">✨ Forever Your Biggest Fan ✨</h2>
 
         <button className="replayBtn" onClick={() => navigate("/")}>
