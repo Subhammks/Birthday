@@ -1,0 +1,196 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600&display=swap');
+
+
+/* =========================================
+   GLOBAL RESET
+========================================= */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+
+  overflow-x: hidden;
+}
+
+
+body {
+  background: #0f1020;
+
+  color: white;
+
+  font-family: 'Montserrat', sans-serif;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
+/* =========================================
+   PREMIUM TYPOGRAPHY
+========================================= */
+
+h1,
+h2,
+h3 {
+  font-family: 'Cormorant Garamond', serif;
+
+  font-weight: 500;
+
+  -webkit-font-smoothing: antialiased;
+}
+
+
+h4,
+h5,
+h6,
+p,
+span,
+button,
+a {
+  font-family: 'Montserrat', sans-serif;
+}
+
+
+/* =========================================
+   SPECIAL CINEMATIC TEXT
+========================================= */
+
+.premiumTitle {
+  font-family: 'Cormorant Garamond', serif;
+
+  font-weight: 500;
+
+  letter-spacing: -0.02em;
+}
+
+
+.cinematicLabel {
+  font-family: 'Montserrat', sans-serif;
+
+  font-size: 10px;
+
+  font-weight: 500;
+
+  letter-spacing: 0.28em;
+
+  text-transform: uppercase;
+}
+
+
+/* =========================================
+   LINKS
+========================================= */
+
+a {
+  text-decoration: none;
+}
+
+
+/* =========================================
+   BUTTONS
+========================================= */
+
+button {
+  border: none;
+
+  cursor: pointer;
+
+  font-family: 'Montserrat', sans-serif;
+}
+
+
+/* =========================================
+   IMAGES
+========================================= */
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 768px) {
+
+  h1 {
+    font-size: 2.2rem !important;
+    line-height: 1.2;
+  }
+
+  h2 {
+    font-size: 1.6rem !important;
+  }
+
+  p {
+    font-size: 0.95rem !important;
+    line-height: 1.8;
+  }
+
+  .heroSection,
+  .content,
+  .memoryCard,
+  .letter {
+    width: 95% !important;
+    padding: 25px !important;
+  }
+
+  .gallery {
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  .photo {
+    width: 85vw !important;
+    height: auto !important;
+  }
+
+  .changingName {
+    font-size: 3rem !important;
+  }
+
+  .cakeImage {
+    width: 80vw !important;
+  }
+
+  .birthdayBitmoji {
+    width: 160px !important;
+  }
+
+  .age3D {
+    font-size: 5rem !important;
+  }
+
+  .statsRow {
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  .statCard {
+    width: 90% !important;
+  }
+
+  .reactionBox {
+    flex-wrap: wrap !important;
+  }
+
+  .nextBtn,
+  .giftBtn,
+  .reactionBtn,
+  .cutCakeBtn,
+  .replayBtn {
+    width: 100% !important;
+    max-width: 350px;
+  }
+}
