@@ -173,7 +173,7 @@ export default function Floor2() {
             transition={{
               duration: 2.5,
               repeat: Infinity,
-            }}
+            }} 
           >
             <div className="avatarInner">:)</div>
           </motion.div>

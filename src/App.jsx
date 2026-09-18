@@ -12,7 +12,7 @@ import FinalNote from "./pages/FinalNote";
 import MusicPlayer from "./components/MusicPlayer";
 import CursorGlow from "./components/CursorGlow";
 import BalloonFollower from "./components/BalloonFollower";
-
+ 
 function App() {
   return (
     <>

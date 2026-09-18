@@ -9,7 +9,7 @@ const quotes = [
   "Maybe some people are written in the stars.",
   "Every memory found its place in our universe.",
 ];
-
+ 
 const stars = [
   [12, 18],
   [19, 32],

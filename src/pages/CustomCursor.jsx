@@ -10,7 +10,7 @@ export default function CustomCursor() {
   const y = useMotionValue(-100);
   const ringX = useSpring(x, { stiffness: 220, damping: 26, mass: 0.6 });
   const ringY = useSpring(y, { stiffness: 220, damping: 26, mass: 0.6 });
-
+ 
   useEffect(() => {
     const canHover = window.matchMedia(
       "(hover: hover) and (pointer: fine)",

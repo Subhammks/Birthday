@@ -120,7 +120,7 @@ export default function Elevator() {
       navigate("/memory");
     }, 900);
   };
-
+ 
   return (
     <motion.main
       className="universe-page"
