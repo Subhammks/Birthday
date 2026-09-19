@@ -1,13 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Typewriter } from "react-simple-typewriter";
 import {
+  animate,
   motion,
   AnimatePresence,
   useMotionValue,
+  useReducedMotion,
   useSpring,
   useTransform,
 } from "framer-motion";
+
+/* =========================================================
+   SCARF SETTINGS (yahan se text/feel badal sakte ho)
+========================================================= */
+
+const HINT_LINE = "tap the red scarf ♡";
+const WRAP_LINE = "Tumhe kabhi thand nahi lagne dunga. ♡";
+
+const SAG = 9; // scarf ka halka sa jhukav jab wo card pe lipta ho
+
+const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+const clamp01 = (v) => clamp(v, 0, 1);
 
 /* =========================================================
    FLOATING STARS
@@ -108,6 +122,90 @@ function FloatingHearts({ count = 18 }) {
 }
 
 /* =========================================================
+   WIND (background)
+   Patli, dheere behti hawa ki lakeeren — scarf ki kahani ka mahaul
+========================================================= */
+
+function WindLayer({ count = 9 }) {
+  const streaks = useMemo(
+    () =>
+      Array.from({ length: count }, (_, i) => ({
+        id: i,
+        y: 8 + Math.random() * 84,
+        w: 90 + Math.random() * 220,
+        d: 9 + Math.random() * 9,
+        dl: -Math.random() * 14,
+      })),
+    [count],
+  );
+
+  return (
+    <div className="windLayer" aria-hidden="true">
+      {streaks.map((s) => (
+        <span
+          key={s.id}
+          className="windStreak"
+          style={{
+            "--y": `${s.y}%`,
+            "--w": `${s.w}px`,
+            "--d": `${s.d}s`,
+            "--dl": `${s.dl}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* Scarf lipatne ke waqt ek tez hawa ka jhonka */
+
+function Gust({ trigger }) {
+  const streaks = useMemo(
+    () =>
+      Array.from({ length: 26 }, (_, i) => ({
+        id: i,
+        y: 6 + Math.random() * 88,
+        w: 80 + Math.random() * 200,
+        h: Math.random() > 0.7 ? 2 : 1,
+        delay: Math.random() * 0.55,
+        duration: 0.9 + Math.random() * 0.9,
+        pink: Math.random() > 0.5,
+      })),
+    // naye trigger pe naye random streaks
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trigger],
+  );
+
+  if (!trigger) return null;
+
+  return (
+    <div className="gust" aria-hidden="true" key={trigger}>
+      {streaks.map((s) => (
+        <motion.span
+          key={s.id}
+          className="gustStreak"
+          style={{
+            top: `${s.y}%`,
+            width: s.w,
+            height: s.h,
+            background: s.pink
+              ? "linear-gradient(90deg, transparent, rgba(255,150,180,.85), transparent)"
+              : "linear-gradient(90deg, transparent, rgba(255,235,245,.8), transparent)",
+          }}
+          initial={{ x: "-25vw", opacity: 0 }}
+          animate={{ x: "125vw", opacity: [0, 0.9, 0] }}
+          transition={{
+            duration: s.duration,
+            delay: s.delay,
+            ease: [0.3, 0.1, 0.3, 1],
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* =========================================================
    GIFT BOX
 ========================================================= */
 
@@ -196,6 +294,540 @@ function GiftBox({ side, opened, onOpen, icon, title }) {
 }
 
 /* =========================================================
+   THE RED SCARF
+
+   Kaise kaam karta hai:
+   - Scarf ek lambi lal patti hai jo screen ke left se hawa mein behti hui
+     letter ke "gale" (heading aur message ke beech ki line) tak aati hai.
+   - Click karo: patti card ke upar se guzarti hui right side tak lipat jaati
+     hai, gaanth banti hai, aur do sire hawa mein lehrane lagte hain.
+   - Dobara click: khul jaata hai.
+
+   Sab kuch SVG mein khud draw kiya hai (koi image/anime asset nahi).
+   Har frame pe sirf path ke coordinates update hote hain, isliye smooth hai.
+========================================================= */
+
+function fringePath(px, py, dx, dy, w, t, len = 11) {
+  const nx = -dy;
+  const ny = dx;
+
+  let s = "";
+
+  for (let k = -4; k <= 4; k += 1) {
+    const off = (k / 4) * (w / 2 - 1.5);
+    const bx = px + nx * off;
+    const by = py + ny * off;
+    const flick = Math.sin(t * 5 + k * 1.3) * 2.2;
+
+    s += `M${bx.toFixed(1)} ${by.toFixed(1)}L${(bx + dx * len + nx * flick).toFixed(1)} ${(by + dy * len + ny * flick).toFixed(1)}`;
+  }
+
+  return s;
+}
+
+function pathOf(pts, dy = 0) {
+  let s = `M${pts[0].x.toFixed(1)} ${(pts[0].y + dy).toFixed(1)}`;
+
+  for (let i = 1; i < pts.length; i += 1) {
+    s += `L${pts[i].x.toFixed(1)} ${(pts[i].y + dy).toFixed(1)}`;
+  }
+
+  return s;
+}
+
+const ScarfLayer = memo(function ScarfLayer({
+  geo,
+  wrapped,
+  onToggle,
+  reduce,
+}) {
+  const { W, y: y0, left, right } = geo;
+
+  // SVG ka canvas: left offscreen se lekar right (tails ke liye) tak
+  const xMin = -(left + 90);
+  const xMax = W + right + 90;
+  const svgW = xMax - xMin;
+  const svgTop = y0 - 130;
+  const svgH = 400;
+
+  const idleX = Math.round(W * 0.16); // wrap se pehle patti ka sira yahan tak
+  const endX = W + 16; // wrap ke baad patti card ke right edge ke paar
+
+  const reveal = useMotionValue(idleX);
+  const tailP = useMotionValue(0);
+  const knotS = useMotionValue(0);
+
+  const els = useRef({});
+  const hoverRef = useRef(false);
+  const prevWrapped = useRef(wrapped);
+
+  const r = (key) => (el) => {
+    els.current[key] = el;
+  };
+
+  /* ---------- wrap / unwrap animation ---------- */
+
+  useEffect(() => {
+    // sirf geometry badli hai (resize) — animation dobara mat chalao
+    if (prevWrapped.current === wrapped) {
+      reveal.set(wrapped ? endX : idleX);
+      return undefined;
+    }
+
+    prevWrapped.current = wrapped;
+
+    const dur = (s) => (reduce ? 0 : s);
+    const controls = [];
+
+    if (wrapped) {
+      controls.push(
+        animate(reveal, endX, {
+          duration: dur(1.5),
+          ease: [0.5, 0, 0.2, 1],
+        }),
+      );
+
+      controls.push(
+        animate(
+          knotS,
+          1,
+          reduce
+            ? { duration: 0 }
+            : {
+                type: "spring",
+                stiffness: 240,
+                damping: 13,
+                delay: 1.25,
+              },
+        ),
+      );
+
+      controls.push(
+        animate(tailP, 1, {
+          duration: dur(1.4),
+          delay: dur(1.35),
+          ease: [0.2, 0.8, 0.25, 1],
+        }),
+      );
+    } else {
+      controls.push(animate(tailP, 0, { duration: dur(0.6), ease: "easeIn" }));
+
+      controls.push(animate(knotS, 0, { duration: dur(0.35) }));
+
+      controls.push(
+        animate(reveal, idleX, {
+          duration: dur(1.1),
+          delay: dur(0.35),
+          ease: [0.5, 0, 0.2, 1],
+        }),
+      );
+    }
+
+    return () => controls.forEach((c) => c.stop());
+  }, [wrapped, idleX, endX, reduce, reveal, knotS, tailP]);
+
+  /* ---------- per-frame drawing ---------- */
+
+  useEffect(() => {
+    const set = (key, d) => {
+      const el = els.current[key];
+      if (el) el.setAttribute("d", d);
+    };
+
+    const setAttr = (key, name, value) => {
+      const el = els.current[key];
+      if (el) el.setAttribute(name, value);
+    };
+
+    // patti ki lehar: left mein hawa mein behti hai, card pe aate hi tight
+    const bandY = (x, t, wrapAmt) => {
+      let y = y0;
+
+      if (x < 0) {
+        const k = Math.min(1, -x / 260);
+        const amp = 30 * k * k * (3 - 2 * k);
+
+        y +=
+          (amp *
+            (Math.sin(x * 0.017 - t * 2.1) +
+              0.5 * Math.sin(x * 0.036 - t * 3.3 + 1.3))) /
+          1.5;
+      }
+
+      if (x > 0) {
+        const u = Math.min(1, x / W);
+        y += SAG * wrapAmt * Math.sin(Math.PI * u);
+      }
+
+      return y;
+    };
+
+    const ribbon = (name, pts, w) => {
+      const base = pathOf(pts);
+
+      set(`${name}-sh`, pathOf(pts, 5));
+      set(`${name}-base`, base);
+      set(`${name}-rib`, base);
+      set(`${name}-hi`, pathOf(pts, -w * 0.26));
+      set(`${name}-lo`, pathOf(pts, w * 0.3));
+
+      return base;
+    };
+
+    const kx = W - clamp(W * 0.13, 34, 72);
+    const roomRight = right + 40 >= 140;
+
+    // do sire (tails): jagah ho toh hawa mein peeche, warna chhote aur neeche
+    const tails = [
+      {
+        name: "tA",
+        ang: roomRight ? 0.16 : 0.5,
+        L: roomRight ? clamp(right + 100, 150, 250) : 120,
+        amp: 15,
+        lam: 90,
+        ph: 0,
+        droop: 46,
+        w: 24,
+        ox: 0,
+        oy: -4,
+      },
+      {
+        name: "tB",
+        ang: roomRight ? 0.5 : 0.85,
+        L: roomRight ? clamp(right + 40, 120, 200) : 90,
+        amp: 12,
+        lam: 78,
+        ph: 1.9,
+        droop: 34,
+        w: 24,
+        ox: 2,
+        oy: 5,
+      },
+    ];
+
+    let raf = 0;
+    let hv = 0;
+    const t0 = performance.now();
+
+    const frame = (now) => {
+      const t = reduce ? 0 : (now - t0) / 1000;
+      const rv = reveal.get();
+      const wrapAmt = clamp01((rv - idleX) / (endX - idleX));
+
+      /* ----- main patti ----- */
+
+      const pts = [];
+
+      for (let x = xMin; x < rv; x += 8) {
+        pts.push({ x, y: bandY(x, t, wrapAmt) });
+      }
+
+      pts.push({ x: rv, y: bandY(rv, t, wrapAmt) });
+
+      const base = ribbon("band", pts, 28);
+
+      set("hit", base);
+      set("glow", base);
+
+      hv += ((hoverRef.current ? 1 : 0) - hv) * 0.12;
+      setAttr("glow", "stroke-opacity", (0.1 + 0.16 * hv).toFixed(3));
+
+      // patti ke sire ka jhalar (jab tak card ke paar nahi gaya)
+      const last = pts[pts.length - 1];
+
+      set("fringeTip", fringePath(last.x, last.y, 1, 0, 28, t, 11));
+      setAttr(
+        "fringeTip",
+        "opacity",
+        (1 - clamp01((rv - (W - 40)) / 40)).toFixed(2),
+      );
+
+      // right edge pe patti kapde ki tarah peeche mudti hui
+      setAttr("edge", "opacity", wrapAmt.toFixed(2));
+
+      /* ----- gaanth + sire ----- */
+
+      const tp = tailP.get();
+      const ks = knotS.get();
+      const ky = y0 + SAG * wrapAmt * Math.sin(Math.PI * clamp01(kx / W));
+
+      tails.forEach((tl) => {
+        const Lc = tl.L * tp;
+
+        if (Lc < 3) {
+          setAttr(`${tl.name}-grp`, "opacity", "0");
+          return;
+        }
+
+        setAttr(`${tl.name}-grp`, "opacity", "1");
+
+        const ang = tl.ang + 0.05 * Math.sin(t * 0.9 + tl.ph);
+        const dx = Math.cos(ang);
+        const dy = Math.sin(ang);
+        const nx = -dy;
+        const ny = dx;
+
+        const N = 30;
+        const tpts = [];
+
+        for (let i = 0; i <= N; i += 1) {
+          const s = (i / N) * Lc;
+          const u = s / tl.L;
+
+          const wave =
+            tl.amp *
+            Math.pow(u, 1.15) *
+            Math.sin((s / tl.lam) * Math.PI * 2 - t * 3.4 + tl.ph);
+
+          tpts.push({
+            x: kx + tl.ox + dx * s + nx * wave,
+            y: ky + tl.oy + dy * s + ny * wave + tl.droop * u * u,
+          });
+        }
+
+        ribbon(tl.name, tpts, tl.w);
+
+        const a = tpts[tpts.length - 2];
+        const b = tpts[tpts.length - 1];
+        const ex = b.x - a.x;
+        const ey = b.y - a.y;
+        const el = Math.hypot(ex, ey) || 1;
+
+        set(
+          `${tl.name}-fringe`,
+          fringePath(b.x, b.y, ex / el, ey / el, tl.w, t, 11),
+        );
+      });
+
+      setAttr(
+        "knot",
+        "transform",
+        `translate(${kx.toFixed(1)} ${ky.toFixed(1)}) rotate(-6) scale(${Math.max(
+          ks,
+          0.0001,
+        ).toFixed(3)})`,
+      );
+      setAttr("knot", "opacity", ks < 0.02 ? "0" : "1");
+
+      raf = requestAnimationFrame(frame);
+    };
+
+    raf = requestAnimationFrame(frame);
+
+    return () => cancelAnimationFrame(raf);
+  }, [W, y0, right, xMin, idleX, endX, reduce, reveal, tailP, knotS]);
+
+  /* ---------- artwork ---------- */
+
+  const layers = (name, w) => (
+    <>
+      <path
+        ref={r(`${name}-sh`)}
+        fill="none"
+        stroke="rgba(0,0,0,.38)"
+        strokeWidth={w + 2}
+      />
+      <path
+        ref={r(`${name}-base`)}
+        fill="none"
+        stroke="#b01223"
+        strokeWidth={w}
+      />
+      <path
+        ref={r(`${name}-rib`)}
+        fill="none"
+        stroke="rgba(45,0,10,.32)"
+        strokeWidth={w}
+        strokeDasharray="1.3 5.2"
+      />
+      <path
+        ref={r(`${name}-hi`)}
+        fill="none"
+        stroke="rgba(255,150,150,.3)"
+        strokeWidth={w * 0.28}
+      />
+      <path
+        ref={r(`${name}-lo`)}
+        fill="none"
+        stroke="rgba(60,0,12,.35)"
+        strokeWidth={w * 0.3}
+      />
+    </>
+  );
+
+  return (
+    <svg
+      className="scarfSvg"
+      width={svgW}
+      height={svgH}
+      viewBox={`${xMin} ${svgTop} ${svgW} ${svgH}`}
+      style={{ left: xMin, top: svgTop }}
+      role="group"
+    >
+      <defs>
+        <linearGradient id="scarfKnotGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#d4283d" />
+          <stop offset="1" stopColor="#84091a" />
+        </linearGradient>
+
+        <linearGradient id="scarfEdge" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="rgba(40,4,12,0)" />
+          <stop offset="1" stopColor="rgba(40,4,12,.85)" />
+        </linearGradient>
+
+        <pattern
+          id="scarfRibs"
+          width="6"
+          height="6"
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(18)"
+        >
+          <rect width="1.3" height="6" fill="rgba(45,0,10,.3)" />
+        </pattern>
+      </defs>
+
+      {/* halka lal glow */}
+      <path
+        ref={r("glow")}
+        fill="none"
+        stroke="#ff3b57"
+        strokeWidth="46"
+        strokeOpacity=".1"
+      />
+
+      {/* main patti */}
+      {layers("band", 28)}
+
+      {/* right edge: patti card ke peeche mud rahi hai */}
+      <rect
+        ref={r("edge")}
+        x={W - 3}
+        y={y0 - 15}
+        width="19"
+        height="30"
+        rx="9"
+        fill="url(#scarfEdge)"
+        opacity="0"
+      />
+
+      {/* patti ka sira (wrap se pehle) */}
+      <path
+        ref={r("fringeTip")}
+        fill="none"
+        stroke="#b01223"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+
+      {/* sire */}
+      {["tA", "tB"].map((name) => (
+        <g key={name} ref={r(`${name}-grp`)} opacity="0">
+          {layers(name, 24)}
+          <path
+            ref={r(`${name}-fringe`)}
+            fill="none"
+            stroke="#b01223"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+        </g>
+      ))}
+
+      {/* gaanth */}
+      <g ref={r("knot")} opacity="0">
+        <ellipse cx="0" cy="22" rx="24" ry="6" fill="rgba(0,0,0,.3)" />
+        <rect
+          x="-25"
+          y="-21"
+          width="50"
+          height="42"
+          rx="14"
+          fill="url(#scarfKnotGrad)"
+        />
+        <rect
+          x="-25"
+          y="-21"
+          width="50"
+          height="42"
+          rx="14"
+          fill="url(#scarfRibs)"
+        />
+        <path
+          d="M-16 -12 C -6 -4, 6 -4, 16 -12"
+          fill="none"
+          stroke="rgba(255,170,170,.38)"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M-18 8 C -6 16, 8 16, 18 6"
+          fill="none"
+          stroke="rgba(50,0,10,.42)"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M-4 -20 C -8 -6, -8 6, -4 20"
+          fill="none"
+          stroke="rgba(50,0,10,.3)"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </g>
+
+      {/* click karne ka ishara (sirf wrap se pehle) */}
+      {!wrapped && (
+        <g style={{ pointerEvents: "none" }}>
+          <circle
+            className="tipRing"
+            cx={idleX}
+            cy={y0}
+            r="18"
+            fill="none"
+            stroke="#ff8fa3"
+            strokeWidth="1.2"
+          />
+          <circle
+            className="tipRing d2"
+            cx={idleX}
+            cy={y0}
+            r="18"
+            fill="none"
+            stroke="#ff8fa3"
+            strokeWidth="1.2"
+          />
+        </g>
+      )}
+
+      {/* click area: poori patti (transparent, mote stroke se) */}
+      <path
+        ref={r("hit")}
+        className="scarfHit"
+        fill="none"
+        stroke="transparent"
+        strokeWidth="56"
+        role="button"
+        tabIndex={0}
+        aria-label={wrapped ? "Unwrap the scarf" : "Wrap the scarf"}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        onPointerEnter={() => {
+          hoverRef.current = true;
+        }}
+        onPointerLeave={() => {
+          hoverRef.current = false;
+        }}
+      />
+    </svg>
+  );
+});
+
+/* =========================================================
    COUNTDOWN
 ========================================================= */
 
@@ -268,6 +900,7 @@ function calculateCountdown(target) {
 
 export default function FinalNote() {
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
 
   const [leftGift, setLeftGift] = useState(false);
   const [rightGift, setRightGift] = useState(false);
@@ -275,6 +908,90 @@ export default function FinalNote() {
   const [countdown, setCountdown] = useState(() =>
     calculateCountdown(getNextBirthday()),
   );
+
+  /* ---------------- SCARF STATE ---------------- */
+
+  const [wrapped, setWrapped] = useState(false);
+  const [gust, setGust] = useState(0);
+  const [geo, setGeo] = useState(null);
+
+  const wrapRef = useRef(null);
+  const contentRef = useRef(null);
+  const dividerRef = useRef(null);
+  const busyRef = useRef(false);
+
+  const toggleScarf = useCallback(() => {
+    if (busyRef.current) return;
+
+    busyRef.current = true;
+    setTimeout(() => {
+      busyRef.current = false;
+    }, 2400);
+
+    setWrapped((w) => !w);
+    setGust((g) => g + 1);
+  }, []);
+
+  /* card ke andar "gale" wali line (heading aur message ke beech) dhundho */
+
+  const measure = useCallback(() => {
+    const wrap = wrapRef.current;
+    const content = contentRef.current;
+    const divider = dividerRef.current;
+
+    if (!wrap || !content || !divider) return;
+
+    const W = wrap.offsetWidth;
+    const y = content.offsetTop + divider.offsetTop + divider.offsetHeight / 2;
+    const parent = wrap.offsetParent;
+    const pw = parent ? parent.clientWidth : window.innerWidth;
+    const left = wrap.offsetLeft;
+    const right = pw - left - W;
+
+    setGeo((prev) => {
+      if (
+        prev &&
+        Math.abs(prev.W - W) < 0.5 &&
+        Math.abs(prev.y - y) < 0.5 &&
+        Math.abs(prev.left - left) < 0.5 &&
+        Math.abs(prev.right - right) < 0.5
+      ) {
+        return prev;
+      }
+
+      return { W, y, left, right };
+    });
+  }, []);
+
+  useEffect(() => {
+    measure();
+
+    let ro;
+
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(measure);
+
+      if (wrapRef.current) ro.observe(wrapRef.current);
+      if (contentRef.current) ro.observe(contentRef.current);
+    }
+
+    window.addEventListener("resize", measure);
+
+    // fonts load hone ke baad heading ki height badal sakti hai
+    const t1 = setTimeout(measure, 600);
+    const t2 = setTimeout(measure, 1600);
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(measure);
+    }
+
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", measure);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [measure]);
 
   /* ---------------- REAL LIVE COUNTDOWN ---------------- */
 
@@ -333,13 +1050,17 @@ export default function FinalNote() {
       <div className="galaxy galaxy1"></div>
       <div className="galaxy galaxy2"></div>
 
+      <div className={`warmGlow ${wrapped ? "on" : ""}`}></div>
+
       <div className="moon">
         <div className="moonGlow"></div>
         <div className="moonSurface"></div>
       </div>
 
       <Stars />
+      <WindLayer />
       <FloatingHearts />
+      <Gust trigger={gust} />
 
       {/* hanging stars */}
 
@@ -357,6 +1078,41 @@ export default function FinalNote() {
       >
         <span>♡ TO MY FAVOURITE HUMAN ♡</span>
       </motion.div>
+
+      {/* scarf ka hint / wrap ke baad ki line (same jagah) */}
+
+      <AnimatePresence mode="wait">
+        {!wrapped ? (
+          <motion.div
+            key="hint"
+            className="scarfNote hintNote"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              transition: { duration: 0.8, delay: 3.2 },
+            }}
+            exit={{ opacity: 0, y: -6, transition: { duration: 0.35 } }}
+          >
+            <span>{HINT_LINE}</span>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="caption"
+            className="scarfNote captionNote"
+            initial={{ opacity: 0, y: 10, filter: "blur(6px)" }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              filter: "blur(0px)",
+              transition: { duration: 1.1, delay: 2.1 },
+            }}
+            exit={{ opacity: 0, y: -6, transition: { duration: 0.35 } }}
+          >
+            {WRAP_LINE}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ================= LEFT GIFT ================= */}
 
@@ -381,7 +1137,8 @@ export default function FinalNote() {
       {/* ================= MAIN LETTER ================= */}
 
       <motion.div
-        className="letter"
+        ref={wrapRef}
+        className="letterWrap"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         style={{
@@ -406,131 +1163,143 @@ export default function FinalNote() {
           ease: [0.16, 1, 0.3, 1],
         }}
       >
-        <div className="letterGlow"></div>
+        <div className={`letter ${wrapped ? "wrapped" : ""}`}>
+          <div className="letterGlow"></div>
 
-        <div className="letterTopLine">
-          <span></span>
-          <i>♡</i>
-          <span></span>
-        </div>
-
-        <div className="letterContent">
-          {/* heading */}
-
-          <motion.div
-            className="birthdayHeading"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-          >
-            <small>HAPPY BIRTHDAY</small>
-
-            <h1>
-              <Typewriter
-                words={["Bachu ♡"]}
-                loop={1}
-                cursor
-                cursorStyle="|"
-                typeSpeed={100}
-                deleteSpeed={0}
-                delaySpeed={999999}
-              />
-            </h1>
-          </motion.div>
-
-          {/* divider */}
-
-          <div className="goldDivider">
-            <span>✦</span>
-            <div></div>
-            <span>♡</span>
-            <div></div>
-            <span>✦</span>
+          <div className="letterTopLine">
+            <span></span>
+            <i>♡</i>
+            <span></span>
           </div>
 
-          {/* message */}
+          <div className="letterContent" ref={contentRef}>
+            {/* heading */}
 
-          <motion.div
-            className="message"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.3 }}
-          >
-            <p>
-              Tmare liye mera dher sara <b>PAYAR</b>
-              <br />
-              aur mera sara <b>WAQT.</b> ♡
-            </p>
+            <motion.div
+              className="birthdayHeading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              <small>HAPPY BIRTHDAY</small>
 
-            <p>
-              Hamesa khus raho tm.
-              <br />
-              Achhi lagti ho jab smile kerti ho,
-              <br />
-              CUTU si smile hai tmari. ❤️
-            </p>
+              <h1>
+                <Typewriter
+                  words={["Bachu ♡"]}
+                  loop={1}
+                  cursor
+                  cursorStyle="|"
+                  typeSpeed={100}
+                  deleteSpeed={0}
+                  delaySpeed={999999}
+                />
+              </h1>
+            </motion.div>
 
-            <p className="specialLine">I am always there for u. ❤️</p>
+            {/* divider */}
 
-            <p className="poetry">
-              I guess more beautiful memories are still
-              <br />
-              waiting to be written...
-              <br />
-              <em>Arz Kiya Hai...</em>
-              <br />
-              Humne bhi likha kuch tere barre mein aise,
-              <br />
-              tu lage ki <strong>GULAB</strong> hai. 🌹
-            </p>
-          </motion.div>
-
-          {/* ================= COUNTDOWN ================= */}
-
-          <motion.div
-            className="countdownSection"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              delay: 2,
-              duration: 0.8,
-            }}
-          >
-            <div className="countdownTitle">
-              <span>♡</span>
-              <p>UNTIL YOUR NEXT BIRTHDAY</p>
-              <span>♡</span>
-            </div>
-
-            <div className="countdown">
-              <CountdownBox value={countdown.months} label="MONTHS" />
-
-              <CountdownBox value={countdown.days} label="DAYS" />
-
-              <CountdownBox value={countdown.hours} label="HOURS" />
-
-              <CountdownBox value={countdown.minutes} label="MINUTES" />
-
-              <CountdownBox
-                value={countdown.seconds}
-                label="SECONDS"
-                highlight
-              />
-            </div>
-
-            <div className="waitingText">
+            <div className="goldDivider" ref={dividerRef}>
               <span>✦</span>
-              because some birthdays are worth waiting for
+              <div></div>
+              <span>♡</span>
+              <div></div>
               <span>✦</span>
             </div>
 
-            <div className="nextBirthday">
-              <span>♡</span>
-              09 AUGUST
-              <span>♡</span>
-            </div>
-          </motion.div>
+            {/* message */}
+
+            <motion.div
+              className="message"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.3 }}
+            >
+              <p>
+                Tmare liye mera dher sara <b>PAYAR</b>
+                <br />
+                aur mera sara <b>WAQT.</b> ♡
+              </p>
+
+              <p>
+                Hamesa khus raho tm.
+                <br />
+                Achhi lagti ho jab smile kerti ho,
+                <br />
+                CUTU si smile hai tmari. ❤️
+              </p>
+
+              <p className="specialLine">I am always there for u. ❤️</p>
+
+              <p className="poetry">
+                I guess more beautiful memories are still
+                <br />
+                waiting to be written...
+                <br />
+                <em>Arz Kiya Hai...</em>
+                <br />
+                Humne bhi likha kuch tere barre mein aise,
+                <br />
+                tu lage ki <strong>GULAB</strong> hai. 🌹
+              </p>
+            </motion.div>
+
+            {/* ================= COUNTDOWN ================= */}
+
+            <motion.div
+              className="countdownSection"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                delay: 2,
+                duration: 0.8,
+              }}
+            >
+              <div className="countdownTitle">
+                <span>♡</span>
+                <p>UNTIL YOUR NEXT BIRTHDAY</p>
+                <span>♡</span>
+              </div>
+
+              <div className="countdown">
+                <CountdownBox value={countdown.months} label="MONTHS" />
+
+                <CountdownBox value={countdown.days} label="DAYS" />
+
+                <CountdownBox value={countdown.hours} label="HOURS" />
+
+                <CountdownBox value={countdown.minutes} label="MINUTES" />
+
+                <CountdownBox
+                  value={countdown.seconds}
+                  label="SECONDS"
+                  highlight
+                />
+              </div>
+
+              <div className="waitingText">
+                <span>✦</span>
+                because some birthdays are worth waiting for
+                <span>✦</span>
+              </div>
+
+              <div className="nextBirthday">
+                <span>♡</span>
+                09 AUGUST
+                <span>♡</span>
+              </div>
+            </motion.div>
+          </div>
         </div>
+
+        {/* lal scarf: card ke bahar bhi ja sakta hai, isliye .letter ke bahar */}
+        {geo && (
+          <ScarfLayer
+            geo={geo}
+            wrapped={wrapped}
+            onToggle={toggleScarf}
+            reduce={!!reduceMotion}
+          />
+        )}
       </motion.div>
 
       {/* ================= BOTTOM ================= */}
@@ -588,7 +1357,13 @@ export default function FinalNote() {
 
           font-family:'DM Sans',sans-serif;
 
+          /* neeche halki crimson roshni — scarf ke rang se milti hui */
           background:
+            radial-gradient(
+              ellipse 80% 40% at 50% 108%,
+              rgba(190,30,70,.22),
+              transparent 65%
+            ),
             radial-gradient(
               ellipse at 50% 40%,
               #35184f 0%,
@@ -657,7 +1432,7 @@ export default function FinalNote() {
           background:
             radial-gradient(
               ellipse,
-              rgba(255,80,180,.22),
+              rgba(255,70,110,.24),
               transparent 70%
             );
 
@@ -725,6 +1500,104 @@ export default function FinalNote() {
           to{
             transform:rotate(360deg);
           }
+        }
+
+        /* scarf wrap hone pe poori screen halki lal-garam ho jaati hai */
+
+        .warmGlow{
+          position:absolute;
+          inset:0;
+          z-index:1;
+          pointer-events:none;
+
+          opacity:0;
+          transition:opacity 2.4s ease;
+
+          background:
+            radial-gradient(
+              ellipse 75% 45% at 50% 105%,
+              rgba(255,50,85,.3),
+              transparent 70%
+            ),
+            radial-gradient(
+              ellipse 40% 32% at 85% 46%,
+              rgba(255,70,100,.13),
+              transparent 70%
+            ),
+            radial-gradient(
+              ellipse 40% 32% at 12% 46%,
+              rgba(255,70,100,.1),
+              transparent 70%
+            );
+        }
+
+        .warmGlow.on{
+          opacity:1;
+        }
+
+
+        /* =====================================================
+           WIND
+        ===================================================== */
+
+        .windLayer{
+          position:absolute;
+          inset:0;
+          z-index:2;
+          pointer-events:none;
+          overflow:hidden;
+        }
+
+        .windStreak{
+          position:absolute;
+          left:0;
+          top:var(--y);
+
+          width:var(--w);
+          height:1px;
+
+          opacity:0;
+
+          background:
+            linear-gradient(
+              90deg,
+              transparent,
+              rgba(255,210,230,.5),
+              transparent
+            );
+
+          animation:windMove var(--d) linear infinite;
+          animation-delay:var(--dl);
+        }
+
+        @keyframes windMove{
+          0%{
+            transform:translateX(-25vw);
+            opacity:0;
+          }
+
+          15%,80%{
+            opacity:.5;
+          }
+
+          100%{
+            transform:translateX(125vw);
+            opacity:0;
+          }
+        }
+
+        .gust{
+          position:absolute;
+          inset:0;
+          z-index:25;
+          pointer-events:none;
+          overflow:hidden;
+        }
+
+        .gustStreak{
+          position:absolute;
+          left:0;
+          border-radius:2px;
         }
 
 
@@ -901,19 +1774,81 @@ export default function FinalNote() {
             0 0 15px rgba(255,150,220,.4);
         }
 
+        /* scarf hint / caption
+           (centering margin se hai, kyunki framer transform overwrite karta hai) */
+
+        .scarfNote{
+          position:absolute;
+          top:64px;
+          left:0;
+          right:0;
+          margin:0 auto;
+
+          width:max-content;
+          max-width:90vw;
+
+          z-index:20;
+
+          text-align:center;
+          pointer-events:none;
+        }
+
+        .hintNote span{
+          display:inline-block;
+
+          font-size:10px;
+          letter-spacing:5px;
+
+          color:#ff9db3;
+
+          text-shadow:
+            0 0 14px rgba(255,70,110,.5);
+
+          animation:hintBlink 2.6s ease-in-out infinite;
+        }
+
+        @keyframes hintBlink{
+          0%,100%{
+            opacity:.55;
+          }
+
+          50%{
+            opacity:1;
+          }
+        }
+
+        .captionNote{
+          font-family:'Italianno',cursive;
+
+          font-size:32px;
+          line-height:1;
+
+          color:#ffdbe6;
+
+          text-shadow:
+            0 0 18px rgba(255,60,100,.55),
+            0 0 40px rgba(255,60,100,.25);
+        }
+
 
         /* =====================================================
            MAIN LETTER
         ===================================================== */
 
-        .letter{
+        .letterWrap{
           width:min(560px, 42vw);
           min-width:480px;
+
+          position:relative;
+          z-index:10;
+        }
+
+        .letter{
+          width:100%;
 
           max-height:86vh;
 
           position:relative;
-          z-index:10;
 
           border-radius:28px;
 
@@ -933,9 +1868,22 @@ export default function FinalNote() {
             0 0 70px rgba(230,80,200,.12),
             inset 0 1px rgba(255,255,255,.18);
 
-          transform-style:preserve-3d;
-
           overflow:hidden;
+
+          transition:
+            border-color 1.8s ease,
+            box-shadow 1.8s ease;
+        }
+
+        /* scarf lipatne ke baad card ki border/glow halki lal-garam */
+
+        .letter.wrapped{
+          border-color:rgba(255,140,170,.45);
+
+          box-shadow:
+            0 30px 90px rgba(0,0,0,.6),
+            0 0 80px rgba(255,70,110,.18),
+            inset 0 1px rgba(255,255,255,.18);
         }
 
         .letter::before{
@@ -1014,8 +1962,62 @@ export default function FinalNote() {
           padding:42px 48px 35px;
           position:relative;
           z-index:2;
+        }
 
-          transform:translateZ(35px);
+
+        /* =====================================================
+           SCARF (SVG)
+        ===================================================== */
+
+        .scarfSvg{
+          position:absolute;
+          z-index:30;
+
+          overflow:visible;
+          pointer-events:none;
+
+          animation:scarfIn 1.4s ease 1.6s both;
+        }
+
+        @keyframes scarfIn{
+          from{
+            opacity:0;
+          }
+
+          to{
+            opacity:1;
+          }
+        }
+
+        .scarfHit{
+          pointer-events:stroke;
+          cursor:pointer;
+          outline:none;
+        }
+
+        .tipRing{
+          transform-box:fill-box;
+          transform-origin:center;
+
+          opacity:0;
+
+          animation:tipPulse 2.4s ease-out infinite;
+        }
+
+        .tipRing.d2{
+          animation-delay:1.2s;
+        }
+
+        @keyframes tipPulse{
+          0%{
+            transform:scale(.6);
+            opacity:.8;
+          }
+
+          100%{
+            transform:scale(2.4);
+            opacity:0;
+          }
         }
 
 
@@ -1809,7 +2811,7 @@ export default function FinalNote() {
             right:1%;
           }
 
-          .letter{
+          .letterWrap{
             width:500px;
             min-width:500px;
           }
@@ -1844,10 +2846,13 @@ export default function FinalNote() {
             top:75%;
           }
 
-          .letter{
+          .letterWrap{
             width:calc(100vw - 50px);
             min-width:0;
             max-width:550px;
+          }
+
+          .letter{
             max-height:none;
           }
 
@@ -1882,6 +2887,19 @@ export default function FinalNote() {
             letter-spacing:4px;
           }
 
+          .scarfNote{
+            top:44px;
+          }
+
+          .hintNote span{
+            font-size:8px;
+            letter-spacing:3px;
+          }
+
+          .captionNote{
+            font-size:24px;
+          }
+
           .moon{
             width:90px;
             height:90px;
@@ -1889,8 +2907,11 @@ export default function FinalNote() {
             top:60px;
           }
 
-          .letter{
+          .letterWrap{
             width:calc(100vw - 30px);
+          }
+
+          .letter{
             max-height:none;
 
             border-radius:22px;
@@ -2005,4 +3026,3 @@ function CountdownBox({ value, label, highlight = false }) {
     </motion.div>
   );
 }
- 
