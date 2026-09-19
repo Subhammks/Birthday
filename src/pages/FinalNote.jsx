@@ -181,7 +181,7 @@ function GiftBox({ side, opened, onOpen, icon, title }) {
 
             <p>
               {side === "left"
-                ? "I am always there for U. ❤️"
+                ? "“There’s still one heart you haven't caught yet… maybe next year.” 👀❤️"
                 : "When u miss me... Call me. 📞❤️"}
             </p>
 
