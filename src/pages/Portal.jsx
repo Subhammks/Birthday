@@ -22,28 +22,36 @@ const NEXT_PAGE = "/elevator";
 const SEEN_KEY = "intro-seen-this-session";
 
 const TITLE = "Happiness";
+const DAYS = 365;
 
 const STORY = [
   {
     text: "A mysterious outbreak has spread through the city.",
     hot: false,
-    at: 1.9,
+    at: 2.5,
   },
-  { text: "But one person remains immune.", hot: false, at: 3.1 },
-  { text: "Today is her birthday.", hot: true, at: 4.3 },
+  { text: "But one person remains immune.", hot: false, at: 3.6 },
+  { text: "Today is her birthday.", hot: true, at: 4.7 },
 ];
 
-/* orbit rings: chhote-chhote "planets" jo universe page ki jhalak dete hain */
-const RINGS = [
-  { rx: 305, ry: 62, dur: 46, begin: -8 },
-  { rx: 235, ry: 50, dur: 34, begin: -21 },
-  { rx: 162, ry: 38, dur: 24, begin: -4 },
-];
+/* =====================================
+   SEALED BUILDING EMBLEM
+   Poori building andheri hai, sirf ek khidki (floor 8, unit 08 = "0808")
+   mein roshni hai. Wahi "ek insaan jo immune hai".
+===================================== */
 
-/* word-by-word blur reveal — typewriter cursor se zyada cinematic */
+const COLS = 8;
+const ROWS = 10;
+const LIT_ROW = 2; // upar se 3rd row = 8th floor (10 floors)
+const LIT_COL = 7; // 8th unit
+const FLICKER = new Set([5, 19, 24, 37, 46, 58, 63, 71]);
+
+const pad = (n, len = 2) => String(n).padStart(len, "0");
+
+/* word-by-word blur reveal */
 function Words({ text, delay, className }) {
   return (
-    <p className={className}>
+    <div className={className}>
       {text.split(" ").map((word, i) => (
         <motion.span
           key={`${word}-${i}`}
@@ -55,7 +63,34 @@ function Words({ text, delay, className }) {
           {word}
         </motion.span>
       ))}
-    </p>
+    </div>
+  );
+}
+
+/* CCTV timecode (bottom-right) — chalta rehta hai */
+function Timecode({ color, glow }) {
+  const [t, setT] = useState(20 * 3600 + 7 * 60 + 41);
+
+  useEffect(() => {
+    const id = setInterval(() => setT((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const hh = Math.floor(t / 3600) % 24;
+  const mm = Math.floor(t / 60) % 60;
+  const ss = t % 60;
+
+  return (
+    <div className="rec">
+      <motion.span
+        className="recDot"
+        style={{ backgroundColor: color, boxShadow: glow }}
+      />
+      <span>REC</span>
+      <span className="tc">
+        {pad(hh)}:{pad(mm)}:{pad(ss)}
+      </span>
+    </div>
   );
 }
 
@@ -81,22 +116,37 @@ export default function Intro() {
   const leavingRef = useRef(false);
   const timerRef = useRef(null);
   const ctaRef = useRef(null);
+  const numRef = useRef(null);
 
   /* =====================================
      WARM SHIFT
-     Story cold (ice-blue, clinical) se shuru hoti hai aur jaise hi
-     "Today is her birthday" aata hai, poora scene pink mein pighal jaata hai —
-     wahi pink jo universe page ka hai.
+     Scene cold (ice-blue, clinical) se shuru hota hai; "Today is her birthday"
+     pe wahi pink ban jaata hai jo universe page ka hai.
   ===================================== */
 
   const warm = useMotionValue(0);
 
-  const coldOpacity = useTransform(warm, [0, 1], [1, 0.2]);
+  const coldOpacity = useTransform(warm, [0, 1], [1, 0.25]);
   const dotColor = useTransform(warm, [0, 1], ["#a8ffd3", "#ff83c5"]);
   const dotGlow = useTransform(
     warm,
     [0, 1],
     ["0 0 10px rgba(168,255,211,.85)", "0 0 12px rgba(255,131,197,.95)"],
+  );
+  const recColor = useTransform(warm, [0, 1], ["#ff5468", "#ff83c5"]);
+  const recGlow = useTransform(
+    warm,
+    [0, 1],
+    ["0 0 10px rgba(255,84,104,.9)", "0 0 12px rgba(255,131,197,.95)"],
+  );
+  const litColor = useTransform(warm, [0, 1], ["#d6e9ff", "#ff83c5"]);
+  const litGlow = useTransform(
+    warm,
+    [0, 1],
+    [
+      "0 0 10px rgba(190,220,255,.95), 0 0 26px rgba(150,190,255,.55)",
+      "0 0 10px rgba(255,131,197,.95), 0 0 28px rgba(255,90,170,.6)",
+    ],
   );
 
   useEffect(() => {
@@ -119,7 +169,7 @@ export default function Intro() {
     const t = setTimeout(() => {
       setWarmed(true);
       controls = animate(warm, 1, { duration: 2.6, ease: "easeInOut" });
-    }, 4300 * speed);
+    }, 4700 * speed);
 
     return () => {
       clearTimeout(t);
@@ -128,7 +178,40 @@ export default function Intro() {
   }, [reduceMotion, speed, warm]);
 
   /* =====================================
-     PARALLAX
+     DAY COUNTER  000 -> 365
+     365 din ek jhalak mein guzar jaate hain, aakhri din pe aakar rukta hai
+  ===================================== */
+
+  const count = useMotionValue(0);
+  const progress = useTransform(count, [0, DAYS], [0, 1]);
+
+  useEffect(() => {
+    const unsub = count.on("change", (v) => {
+      if (numRef.current) {
+        numRef.current.textContent = pad(Math.round(v), 3);
+      }
+    });
+
+    return unsub;
+  }, [count]);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      count.set(DAYS);
+      return undefined;
+    }
+
+    const controls = animate(count, DAYS, {
+      duration: 2 * speed,
+      delay: 0.5 * speed,
+      ease: [0.22, 1, 0.36, 1],
+    });
+
+    return () => controls.stop();
+  }, [reduceMotion, speed, count]);
+
+  /* =====================================
+     PARALLAX (sirf atmosphere glow pe, text stable rehta hai)
   ===================================== */
 
   const mx = useMotionValue(0);
@@ -137,8 +220,6 @@ export default function Intro() {
   const springX = useSpring(mx, { stiffness: 55, damping: 20 });
   const springY = useSpring(my, { stiffness: 55, damping: 20 });
 
-  const nearX = useTransform(springX, [-1, 1], [-4, 4]);
-  const nearY = useTransform(springY, [-1, 1], [-3, 3]);
   const farX = useTransform(springX, [-1, 1], [-14, 14]);
   const farY = useTransform(springY, [-1, 1], [-9, 9]);
 
@@ -188,8 +269,8 @@ export default function Intro() {
 
   /* =====================================
      CLICK -> WARP -> UNIVERSE PAGE
-     (universe page ke planet-click wala hi transition, taaki dono pages ek hi
-      kahani lagein. Aakhir mein screen #05030d ho jaati hai = universe ka base)
+     (universe page ke planet-click wala hi transition. Aakhir mein screen
+      #05030d ho jaati hai = universe ka base, toh page change pe flash nahi)
   ===================================== */
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
@@ -228,7 +309,7 @@ export default function Intro() {
       y: 0,
       rotateX: 0,
       filter: "blur(0px)",
-      transition: { duration: 1.4, delay: d(0.55) + i * 0.08, ease },
+      transition: { duration: 1.4, delay: d(0.7) + i * 0.08, ease },
     }),
   };
 
@@ -238,10 +319,12 @@ export default function Intro() {
 
       <main className="intro">
         {/* =====================================
-            ATMOSPHERE
-            (BG wahi hai; upar se soft cold->warm glow taaki screen
-             "kaali" na lage)
+            LEGIBILITY + ATMOSPHERE
+            Photo BG wahi hai. Text ke peeche ek soft scrim hai (taaki
+            padhna asaan ho aur chehre na dhakein), uske upar cold->warm glow.
         ===================================== */}
+
+        <div className="scrim" aria-hidden="true" />
 
         <motion.div
           className="aurora"
@@ -255,25 +338,22 @@ export default function Intro() {
           <motion.span className="auroraWarm" style={{ opacity: warm }} />
         </motion.div>
 
-        {/* searchlight — sirf ek insaan pe */}
+        {/* CCTV frame corners */}
         <motion.div
-          className="beam"
+          className="frame"
           aria-hidden="true"
           initial={{ opacity: 0 }}
-          animate={{ opacity: reduceMotion ? 0.7 : [0.45, 0.85, 0.45] }}
-          transition={{
-            duration: reduceMotion ? 0 : 7,
-            repeat: reduceMotion ? 0 : Infinity,
-            ease: "easeInOut",
-            delay: d(0.3),
-          }}
-        />
-
-        <div className="grain" aria-hidden="true" />
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1.4, delay: d(0.2) }}
+        >
+          <span className="fc tl" />
+          <span className="fc tr" />
+          <span className="fc bl" />
+          <span className="fc br" />
+        </motion.div>
 
         {/* =====================================
-            TOP LEFT / TOP RIGHT
-            (universe page ke same corners — text kahani ke saath badalta hai)
+            CORNERS (universe page ke same corners)
         ===================================== */}
 
         <motion.div
@@ -283,7 +363,7 @@ export default function Intro() {
           transition={{ duration: 1.2, delay: d(0.4) }}
         >
           <span className="brandHeart">♡</span>
-          <span>QUARANTINE&nbsp; DAY 365</span>
+          <span>CAM 08 · STAIRWELL</span>
         </motion.div>
 
         <motion.div
@@ -315,104 +395,80 @@ export default function Intro() {
         </motion.div>
 
         {/* =====================================
-            CENTER STAGE
+            CONTENT (left column — poster jaisa)
         ===================================== */}
 
         <div className="stage">
-          {/* BEACON: immune heart + orbit rings (universe ka chhota sa trailer) */}
-          <motion.div className="beaconParallax" style={{ x: farX, y: farY }}>
-            <motion.div
-              className="beacon"
-              initial={{ opacity: 0, scale: 0.7 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1.8, delay: d(0.2), ease }}
-            >
-              <svg className="rings" viewBox="0 0 640 220" aria-hidden="true">
-                <defs>
-                  <linearGradient
-                    id="introRingFade"
-                    x1="0"
-                    x2="1"
-                    y1="0"
-                    y2="0"
-                  >
-                    <stop offset="0" stopColor="#ff9ad5" stopOpacity="0" />
-                    <stop offset="0.5" stopColor="#ffb3e0" stopOpacity="0.5" />
-                    <stop offset="1" stopColor="#c59bff" stopOpacity="0" />
-                  </linearGradient>
+          {/* sealed building + day counter */}
+          <div className="header">
+            <div className="windows" aria-hidden="true">
+              {Array.from({ length: ROWS * COLS }, (_, i) => {
+                const r = Math.floor(i / COLS);
+                const c = i % COLS;
 
-                  <radialGradient id="introDotGlow">
-                    <stop offset="0" stopColor="#ffffff" />
-                    <stop offset="0.35" stopColor="#ffb3e0" stopOpacity="0.8" />
-                    <stop offset="1" stopColor="#ff7fbd" stopOpacity="0" />
-                  </radialGradient>
-                </defs>
-
-                <g transform="rotate(-7 320 110)">
-                  {RINGS.map((r) => (
-                    <ellipse
-                      key={`ring-${r.rx}`}
-                      cx="320"
-                      cy="110"
-                      rx={r.rx}
-                      ry={r.ry}
-                      fill="none"
-                      stroke="url(#introRingFade)"
-                      strokeWidth="1"
+                if (r === LIT_ROW && c === LIT_COL) {
+                  return (
+                    <motion.span
+                      key={i}
+                      className="win lit"
+                      style={{ backgroundColor: litColor, boxShadow: litGlow }}
+                      initial={{ opacity: 0, scale: 0.4 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 1.1, delay: d(2.1), ease }}
                     />
-                  ))}
+                  );
+                }
 
-                  {RINGS.map((r) => (
-                    <g
-                      key={`dot-${r.rx}`}
-                      transform={
-                        reduceMotion
-                          ? `translate(${320 - r.rx} 110)`
-                          : undefined
-                      }
-                    >
-                      <circle r="7" fill="url(#introDotGlow)" opacity="0.9" />
-                      <circle r="1.8" fill="#ffffff" />
+                const flick = FLICKER.has(i);
 
-                      {!reduceMotion && (
-                        <animateMotion
-                          dur={`${r.dur}s`}
-                          begin={`${r.begin}s`}
-                          repeatCount="indefinite"
-                          path={`M ${320 - r.rx} 110 a ${r.rx} ${r.ry} 0 1 0 ${
-                            2 * r.rx
-                          } 0 a ${r.rx} ${r.ry} 0 1 0 ${-2 * r.rx} 0`}
-                        />
-                      )}
-                    </g>
-                  ))}
-                </g>
-              </svg>
-
-              <div className="coreSlot">
-                <span className="coreRipple" />
-                <span className="coreRipple second" />
-
-                <motion.div
-                  className="core"
-                  animate={reduceMotion ? {} : { scale: [1, 1.13, 1, 1.08, 1] }}
-                  transition={{
-                    duration: 2.4,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    times: [0, 0.14, 0.28, 0.42, 1],
-                  }}
-                >
+                return (
                   <motion.span
-                    className="coreCold"
-                    style={{ opacity: coldOpacity }}
+                    key={i}
+                    className={`win ${flick ? "flick" : ""}`}
+                    style={
+                      flick
+                        ? {
+                            "--fd": `${5 + (i % 5)}s`,
+                            "--fo": `${(i % 7) * -1.3}s`,
+                          }
+                        : undefined
+                    }
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{
+                      duration: 0.6,
+                      delay: d(0.9 + r * 0.06 + c * 0.015),
+                    }}
                   />
-                  <motion.span className="coreWarm" style={{ opacity: warm }} />
-                  <span className="coreHeart">♡</span>
-                </motion.div>
+                );
+              })}
+            </div>
+
+            <div className="dayBlock">
+              <div className="dayRow">
+                <span className="dayLabel">DAY</span>
+                <span className="dayNum" ref={numRef}>
+                  000
+                </span>
               </div>
-            </motion.div>
-          </motion.div>
+
+              <div className="dayTrack">
+                <motion.span
+                  className="dayFill"
+                  style={{
+                    scaleX: progress,
+                    backgroundColor: litColor,
+                    boxShadow: litGlow,
+                  }}
+                />
+              </div>
+
+              <div className="unit">
+                UNIT 0808
+                <span className="unitSub">ONE LIGHT STILL ON</span>
+              </div>
+            </div>
+          </div>
 
           {/* TITLE */}
           <h1 className="title" aria-label={TITLE}>
@@ -432,15 +488,8 @@ export default function Intro() {
             </span>
           </h1>
 
-          <motion.span
-            className="hair"
-            initial={{ scaleX: 0, opacity: 0 }}
-            animate={{ scaleX: 1, opacity: 1 }}
-            transition={{ duration: 1.3, delay: d(1.6), ease }}
-          />
-
           {/* STORY */}
-          <motion.div className="story" style={{ x: nearX, y: nearY }}>
+          <div className="story">
             {STORY.map((line) => (
               <Words
                 key={line.text}
@@ -449,14 +498,14 @@ export default function Intro() {
                 className={`storyLine ${line.hot ? "hot" : ""}`}
               />
             ))}
-          </motion.div>
+          </div>
 
           {/* CTA */}
           <motion.div
             className="ctaEntrance"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: d(5.2), ease }}
+            transition={{ duration: 1, delay: d(5.6), ease }}
           >
             <motion.div
               className="ctaInner"
@@ -478,25 +527,25 @@ export default function Intro() {
             </motion.div>
           </motion.div>
 
-          <motion.p
+          <motion.div
             className="quote"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1.2, delay: d(5.7), ease }}
+            transition={{ duration: 1.2, delay: d(6.1), ease }}
           >
             “In a world full of fear, one person remained my happiness.”
-          </motion.p>
+          </motion.div>
         </div>
 
         {/* =====================================
-            BOTTOM — universe page wala hi navigation (01/05 yahan se shuru)
+            BOTTOM — universe page wala hi navigation + CCTV timecode
         ===================================== */}
 
         <motion.div
           className="bottomNav"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: d(5.4) }}
+          transition={{ duration: 1, delay: d(5.6) }}
         >
           <span>00 / 05</span>
 
@@ -509,6 +558,14 @@ export default function Intro() {
           </span>
 
           <span className="prologue">PROLOGUE</span>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1, delay: d(0.8) }}
+        >
+          <Timecode color={recColor} glow={recGlow} />
         </motion.div>
       </main>
 
@@ -542,7 +599,8 @@ export default function Intro() {
       <style>{`
 
         /* =====================================
-           INTRO — layout
+           LAYOUT — poster jaisa left column
+           (chehre BG mein beech/right mein hain, text left mein rehta hai)
         ===================================== */
 
         .intro {
@@ -554,11 +612,9 @@ export default function Intro() {
 
           display: flex;
           align-items: center;
-          justify-content: center;
+          justify-content: flex-start;
 
-          padding: 84px 24px 84px;
-
-          text-align: center;
+          padding: 96px max(6vw, 60px) 110px;
 
           overflow-x: hidden;
         }
@@ -574,21 +630,49 @@ export default function Intro() {
 
           display: flex;
           flex-direction: column;
-          align-items: center;
+          align-items: flex-start;
 
-          width: 100%;
-          max-width: 760px;
+          width: min(600px, 46vw);
+
+          text-align: left;
         }
 
         /* =====================================
-           ATMOSPHERE (cold -> warm)
-           NOTE: centering yahan margin se hai, CSS transform se nahi,
-           taaki framer ka x/y usko overwrite na kare
+           SCRIM + ATMOSPHERE
+           (centering / positioning margin-inset se, CSS transform se nahi,
+            taaki framer ka x/y usko overwrite na kare)
         ===================================== */
+
+        .scrim {
+          position: absolute;
+          inset: 0;
+
+          z-index: -1;
+          pointer-events: none;
+
+          background:
+            linear-gradient(
+              90deg,
+              rgba(8,4,18,.9) 0%,
+              rgba(8,4,18,.8) 26%,
+              rgba(8,4,18,.46) 46%,
+              rgba(8,4,18,0) 68%
+            ),
+            linear-gradient(
+              0deg,
+              rgba(8,4,18,.6) 0%,
+              rgba(8,4,18,0) 26%
+            ),
+            linear-gradient(
+              180deg,
+              rgba(8,4,18,.55) 0%,
+              rgba(8,4,18,0) 20%
+            );
+        }
 
         .aurora {
           position: absolute;
-          inset: -8%;
+          inset: -6%;
 
           z-index: -1;
           pointer-events: none;
@@ -605,18 +689,13 @@ export default function Intro() {
         .auroraCold {
           background:
             radial-gradient(
-              ellipse 60% 45% at 50% 28%,
-              rgba(120,170,255,.26),
+              ellipse 45% 55% at 16% 58%,
+              rgba(110,150,255,.2),
               transparent 70%
             ),
             radial-gradient(
-              ellipse 45% 40% at 18% 82%,
-              rgba(110,100,255,.17),
-              transparent 70%
-            ),
-            radial-gradient(
-              ellipse 40% 35% at 85% 70%,
-              rgba(90,190,255,.11),
+              ellipse 35% 35% at 40% 105%,
+              rgba(90,190,255,.12),
               transparent 70%
             );
         }
@@ -624,18 +703,13 @@ export default function Intro() {
         .auroraWarm {
           background:
             radial-gradient(
-              ellipse 60% 45% at 50% 30%,
-              rgba(255,110,190,.28),
+              ellipse 45% 55% at 16% 62%,
+              rgba(255,110,190,.25),
               transparent 70%
             ),
             radial-gradient(
-              ellipse 45% 40% at 82% 78%,
-              rgba(190,110,255,.22),
-              transparent 70%
-            ),
-            radial-gradient(
-              ellipse 40% 35% at 15% 75%,
-              rgba(255,150,210,.14),
+              ellipse 35% 40% at 42% 105%,
+              rgba(190,110,255,.2),
               transparent 70%
             );
 
@@ -644,54 +718,40 @@ export default function Intro() {
 
         @keyframes auroraDrift {
           from { transform: scale(1) translate3d(0, 0, 0); }
-          to   { transform: scale(1.07) translate3d(1.5%, -1.5%, 0); }
+          to   { transform: scale(1.06) translate3d(1.5%, -1.5%, 0); }
         }
 
-        .beam {
+        /* CCTV frame corners */
+
+        .frame {
+          position: absolute;
+          inset: 20px;
+
+          pointer-events: none;
+        }
+
+        .fc {
           position: absolute;
 
-          top: -6%;
-          left: 0;
-          right: 0;
-          margin: 0 auto;
+          width: 22px;
+          height: 22px;
 
-          width: min(560px, 84vw);
-          height: 64%;
-
-          z-index: -1;
-          pointer-events: none;
-
-          background: linear-gradient(
-            to bottom,
-            rgba(215,232,255,0),
-            rgba(215,232,255,.13) 35%,
-            rgba(255,190,230,0)
-          );
-
-          clip-path: polygon(46% 0, 54% 0, 100% 100%, 0 100%);
-          filter: blur(14px);
+          border: 0 solid rgba(255,255,255,.3);
         }
 
-        .grain {
-          position: absolute;
-          inset: 0;
-
-          z-index: -1;
-          pointer-events: none;
-
-          opacity: .07;
-
-          background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-        }
+        .fc.tl { top: 0;    left: 0;  border-top-width: 1px;    border-left-width: 1px;  }
+        .fc.tr { top: 0;    right: 0; border-top-width: 1px;    border-right-width: 1px; }
+        .fc.bl { bottom: 0; left: 0;  border-bottom-width: 1px; border-left-width: 1px;  }
+        .fc.br { bottom: 0; right: 0; border-bottom-width: 1px; border-right-width: 1px; }
 
         /* =====================================
-           CORNERS (universe page se same)
+           CORNERS
         ===================================== */
 
         .topLeft {
           position: absolute;
-          top: 38px;
-          left: 48px;
+          top: 40px;
+          left: 60px;
 
           display: flex;
           align-items: center;
@@ -702,7 +762,7 @@ export default function Intro() {
           font-weight: 500;
           letter-spacing: 5px;
 
-          color: rgba(255,255,255,.62);
+          color: rgba(255,255,255,.7);
 
           pointer-events: none;
         }
@@ -719,8 +779,8 @@ export default function Intro() {
 
         .topRight {
           position: absolute;
-          top: 30px;
-          right: 48px;
+          top: 32px;
+          right: 60px;
 
           text-align: right;
 
@@ -729,7 +789,7 @@ export default function Intro() {
           letter-spacing: 4px;
           line-height: 2;
 
-          color: rgba(255,255,255,.36);
+          color: rgba(255,255,255,.55);
 
           pointer-events: none;
         }
@@ -760,129 +820,126 @@ export default function Intro() {
         }
 
         /* =====================================
-           BEACON
+           HEADER: sealed building + day counter
         ===================================== */
 
-        .beaconParallax {
-          width: min(640px, 92vw, 72vh);
+        .header {
+          --cell: 7px;
+
+          display: flex;
+          align-items: center;
+          gap: 24px;
+
+          margin-bottom: 30px;
         }
 
-        .beacon {
-          position: relative;
-
-          width: 100%;
-          aspect-ratio: 640 / 220;
-        }
-
-        .rings {
-          position: absolute;
-          inset: 0;
-
-          width: 100%;
-          height: 100%;
-
-          overflow: visible;
-        }
-
-        .coreSlot {
-          position: absolute;
-          inset: 0;
-          margin: auto;
-
-          width: 13%;
-          aspect-ratio: 1;
-          height: auto;
-
+        .windows {
           display: grid;
-          place-items: center;
+          grid-template-columns: repeat(${COLS}, var(--cell));
+          gap: calc(var(--cell) * .5);
+
+          flex-shrink: 0;
         }
 
-        .core {
-          position: relative;
+        .win {
+          display: block;
 
-          width: 100%;
-          height: 100%;
+          width: var(--cell);
+          height: var(--cell);
 
-          border-radius: 50%;
-
-          display: grid;
-          place-items: center;
+          border: 1px solid rgba(255,255,255,.3);
+          background: rgba(255,255,255,.05);
         }
 
-        .coreCold,
-        .coreWarm {
-          position: absolute;
-          inset: 0;
-
-          border-radius: 50%;
+        .win.flick {
+          animation: flick var(--fd, 6s) linear infinite;
+          animation-delay: var(--fo, 0s);
         }
 
-        .coreCold {
-          background:
-            radial-gradient(
-              circle at 35% 30%,
-              #fff,
-              #e2f1ff 22%,
-              #8fc3ff 50%,
-              #3b5fb0 78%,
-              #16244a
-            );
-
-          box-shadow:
-            0 0 25px rgba(140,190,255,.8),
-            0 0 70px rgba(110,160,255,.5),
-            0 0 140px rgba(110,120,255,.25);
+        @keyframes flick {
+          0%, 86%, 90%, 100% { background: rgba(255,255,255,.05); }
+          87%, 92%           { background: rgba(255,236,200,.4); }
         }
 
-        .coreWarm {
-          background:
-            radial-gradient(
-              circle at 35% 30%,
-              #fff,
-              #ffb3dc 20%,
-              #ff5eae 45%,
-              #9b2871 75%,
-              #42102f
-            );
+        .win.lit {
+          border-color: transparent;
 
-          box-shadow:
-            0 0 25px rgba(255,100,190,.85),
-            0 0 70px rgba(255,70,170,.55),
-            0 0 140px rgba(190,70,220,.3);
+          animation: litPulse 2.6s ease-in-out infinite;
         }
 
-        .coreHeart {
-          position: relative;
+        @keyframes litPulse {
+          0%, 100% { filter: brightness(1); }
+          50%      { filter: brightness(1.4); }
+        }
 
-          font-family: 'Cormorant Garamond', serif;
-          font-size: clamp(18px, 3.2vw, 30px);
+        .dayBlock {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+
+          width: min(300px, 32vw);
+        }
+
+        .dayRow {
+          display: flex;
+          align-items: baseline;
+          gap: 14px;
+        }
+
+        .dayLabel {
+          font-family: 'Montserrat', sans-serif;
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: 6px;
+
+          color: rgba(255,255,255,.6);
+        }
+
+        .dayNum {
+          font-family: 'Montserrat', sans-serif;
+          font-size: 34px;
+          font-weight: 300;
+          letter-spacing: .1em;
+          font-variant-numeric: tabular-nums;
+          line-height: 1;
 
           color: #fff;
 
-          text-shadow:
-            0 0 10px #fff,
-            0 0 25px rgba(255,140,204,.9);
+          text-shadow: 0 2px 20px rgba(8,4,18,.7);
         }
 
-        .coreRipple {
-          position: absolute;
-          inset: 0;
+        .dayTrack {
+          width: 100%;
+          height: 1px;
 
-          border-radius: 50%;
-          border: 1px solid rgba(255,190,230,.5);
-
-          pointer-events: none;
-
-          animation: coreRipple 4s ease-out infinite;
+          background: rgba(255,255,255,.2);
         }
 
-        .coreRipple.second {
-          animation-delay: 2s;
+        .dayFill {
+          display: block;
+
+          width: 100%;
+          height: 100%;
+
+          transform-origin: left center;
         }
 
-        @keyframes coreRipple {
-          0%   { transform: scale(1);   opacity: .5; }
-          100% { transform: scale(3.2); opacity: 0;  }
+        .unit {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+
+          font-family: 'Montserrat', sans-serif;
+          font-size: 9px;
+          font-weight: 500;
+          letter-spacing: 4px;
+
+          color: rgba(255,255,255,.7);
+        }
+
+        .unitSub {
+          color: rgba(255,255,255,.42);
+          letter-spacing: 3px;
         }
 
         /* =====================================
@@ -890,17 +947,18 @@ export default function Intro() {
         ===================================== */
 
         .title {
-          margin: -6px 0 0;
+          margin: 0;
 
           font-family: 'Cormorant Garamond', serif !important;
-          font-size: clamp(3.6rem, min(12vw, 17vh), 9.5rem);
+          font-size: clamp(3.4rem, min(9vw, 14vh), 8rem);
           font-weight: 300;
           line-height: 1;
           letter-spacing: -.02em;
+          text-align: left;
 
           filter:
-            drop-shadow(0 0 26px rgba(255,150,215,.22))
-            drop-shadow(0 0 60px rgba(150,170,255,.16));
+            drop-shadow(0 4px 26px rgba(8,4,18,.75))
+            drop-shadow(0 0 40px rgba(255,150,215,.2));
         }
 
         .titleLine {
@@ -929,61 +987,57 @@ export default function Intro() {
           color: transparent;
         }
 
-        .hair {
-          display: block;
-
-          width: 120px;
-          height: 1px;
-          margin: 16px auto 26px;
-
-          background: linear-gradient(
-            90deg,
-            transparent,
-            rgba(255,190,230,.7),
-            transparent
-          );
-        }
-
         /* =====================================
            STORY
+           (font-family !important: tumhare project mein global span rule
+            font override kar raha tha, isliye story sans-serif dikh rahi thi)
         ===================================== */
 
         .story {
           display: flex;
           flex-direction: column;
-          align-items: center;
+          align-items: flex-start;
           gap: 6px;
 
-          min-height: 132px;
+          margin-top: 22px;
         }
 
         .storyLine {
           margin: 0;
 
-          font-family: 'Cormorant Garamond', serif;
-          font-size: clamp(1.25rem, 1.4vw + .9rem, 1.85rem);
-          font-weight: 400;
-          line-height: 1.5;
+          font-family: 'Cormorant Garamond', serif !important;
+          font-size: clamp(1.25rem, .9vw + 1rem, 1.7rem);
+          font-weight: 500;
+          line-height: 1.45;
 
-          color: rgba(228,236,250,.68);
+          color: rgba(244,247,255,.93);
+
+          text-shadow:
+            0 1px 2px rgba(8,4,18,.7),
+            0 4px 28px rgba(8,4,18,.85);
+
+          text-wrap: balance;
         }
 
         .storyLine.hot {
           margin-top: 8px;
 
           font-style: italic;
-          font-size: clamp(1.4rem, 1.7vw + .95rem, 2.1rem);
+          font-size: clamp(1.45rem, 1.2vw + 1.05rem, 2rem);
 
-          color: #ffd9ef;
+          color: #ffdff1;
 
           text-shadow:
-            0 0 26px rgba(255,120,190,.5),
-            0 0 60px rgba(255,90,170,.25);
+            0 1px 2px rgba(8,4,18,.6),
+            0 0 26px rgba(255,120,190,.55),
+            0 0 60px rgba(255,90,170,.28);
         }
 
         .word {
           display: inline-block;
           margin-right: .28em;
+
+          font-family: 'Cormorant Garamond', serif !important;
         }
 
         .word:last-child {
@@ -995,7 +1049,7 @@ export default function Intro() {
         ===================================== */
 
         .ctaEntrance {
-          margin-top: 34px;
+          margin-top: 32px;
         }
 
         .ctaInner {
@@ -1024,8 +1078,8 @@ export default function Intro() {
         }
 
         @keyframes ctaRipple {
-          0%   { transform: scale(1);              opacity: .5; }
-          100% { transform: scale(1.35, 1.9);      opacity: 0;  }
+          0%   { transform: scale(1);         opacity: .5; }
+          100% { transform: scale(1.35, 1.9); opacity: 0;  }
         }
 
         .cta {
@@ -1050,23 +1104,23 @@ export default function Intro() {
           text-transform: uppercase;
           text-decoration: none;
 
-          color: rgba(255,255,255,.92);
+          color: rgba(255,255,255,.95);
 
           background:
-            linear-gradient(rgba(14,8,26,.72), rgba(14,8,26,.72)) padding-box,
+            linear-gradient(rgba(14,8,26,.78), rgba(14,8,26,.78)) padding-box,
             linear-gradient(
               120deg,
-              rgba(255,160,220,.75),
-              rgba(180,140,255,.5),
-              rgba(255,255,255,.22)
+              rgba(255,160,220,.8),
+              rgba(180,140,255,.55),
+              rgba(255,255,255,.25)
             ) border-box;
 
           backdrop-filter: blur(18px);
           -webkit-backdrop-filter: blur(18px);
 
           box-shadow:
-            0 16px 45px rgba(0,0,0,.25),
-            0 0 34px rgba(255,110,190,.14),
+            0 16px 45px rgba(0,0,0,.3),
+            0 0 34px rgba(255,110,190,.16),
             inset 0 1px rgba(255,255,255,.14);
 
           overflow: hidden;
@@ -1101,8 +1155,8 @@ export default function Intro() {
           color: #fff;
 
           box-shadow:
-            0 18px 55px rgba(0,0,0,.3),
-            0 0 50px rgba(255,110,190,.28),
+            0 18px 55px rgba(0,0,0,.35),
+            0 0 50px rgba(255,110,190,.3),
             inset 0 1px rgba(255,255,255,.22);
         }
 
@@ -1136,26 +1190,28 @@ export default function Intro() {
         }
 
         .quote {
-          max-width: 560px;
-          margin: 30px 0 0;
+          max-width: 480px;
+          margin-top: 26px;
 
-          font-family: 'Cormorant Garamond', serif;
-          font-size: clamp(1.02rem, .5vw + .9rem, 1.2rem);
+          font-family: 'Cormorant Garamond', serif !important;
+          font-size: clamp(1.02rem, .4vw + .92rem, 1.2rem);
           font-style: italic;
           line-height: 1.6;
 
-          color: rgba(255,226,243,.5);
+          color: rgba(255,232,245,.72);
+
+          text-shadow: 0 2px 20px rgba(8,4,18,.85);
         }
 
         /* =====================================
-           BOTTOM NAV (universe page jaisa)
+           BOTTOM: nav + CCTV timecode
         ===================================== */
 
         .bottomNav {
           position: absolute;
 
-          left: 4%;
-          bottom: 32px;
+          left: 60px;
+          bottom: 36px;
 
           display: flex;
           align-items: center;
@@ -1165,7 +1221,7 @@ export default function Intro() {
           font-size: 9px;
           letter-spacing: 3px;
 
-          color: rgba(255,255,255,.4);
+          color: rgba(255,255,255,.55);
 
           pointer-events: none;
         }
@@ -1181,11 +1237,11 @@ export default function Intro() {
 
           border-radius: 50%;
 
-          border: 1px solid rgba(255,255,255,.3);
+          border: 1px solid rgba(255,255,255,.35);
         }
 
         .dots .pre {
-          border-color: rgba(255,127,189,.85);
+          border-color: rgba(255,127,189,.9);
 
           box-shadow: 0 0 10px rgba(255,127,189,.5);
 
@@ -1194,6 +1250,48 @@ export default function Intro() {
 
         .prologue {
           margin-left: 8px;
+        }
+
+        .rec {
+          position: absolute;
+
+          right: 60px;
+          bottom: 36px;
+
+          display: flex;
+          align-items: center;
+          gap: 10px;
+
+          font-family: 'Montserrat', sans-serif;
+          font-size: 9px;
+          letter-spacing: 3px;
+
+          color: rgba(255,255,255,.6);
+
+          pointer-events: none;
+        }
+
+        .recDot {
+          display: block;
+
+          width: 6px;
+          height: 6px;
+
+          border-radius: 50%;
+
+          animation: recBlink 1.6s steps(1, end) infinite;
+        }
+
+        @keyframes recBlink {
+          0%, 60% { opacity: 1; }
+          61%, 100% { opacity: .15; }
+        }
+
+        .tc {
+          margin-left: 6px;
+
+          font-variant-numeric: tabular-nums;
+          letter-spacing: 2px;
         }
 
         /* =====================================
@@ -1220,58 +1318,107 @@ export default function Intro() {
            SHORT LAPTOP SCREENS
         ===================================== */
 
-        @media (max-height: 780px) {
+        @media (max-height: 820px) {
 
           .intro {
-            padding-top: 72px;
-            padding-bottom: 72px;
+            padding-top: 84px;
+            padding-bottom: 96px;
           }
 
-          .hair {
-            margin: 12px auto 18px;
+          .header {
+            --cell: 6px;
+
+            margin-bottom: 22px;
           }
 
           .story {
-            min-height: 116px;
+            margin-top: 16px;
           }
 
           .ctaEntrance {
-            margin-top: 26px;
+            margin-top: 24px;
           }
 
           .quote {
-            margin-top: 22px;
+            margin-top: 18px;
           }
         }
 
         /* =====================================
-           TABLET
+           TABLET / MOBILE
+           (chehre beech mein aa jaate hain, toh text neeche shift hota hai
+            aur neeche se ek gehra gradient photo ko dheere fade karta hai)
         ===================================== */
 
-        @media (max-width: 1100px) {
+        @media (max-width: 900px) {
+
+          .intro {
+            align-items: flex-end;
+
+            padding: 90px 28px 84px;
+          }
+
+          .stage {
+            width: 100%;
+            max-width: 560px;
+          }
+
+          .scrim {
+            background:
+              linear-gradient(
+                0deg,
+                rgba(8,4,18,.95) 0%,
+                rgba(8,4,18,.88) 42%,
+                rgba(8,4,18,.4) 68%,
+                rgba(8,4,18,0) 88%
+              ),
+              linear-gradient(
+                180deg,
+                rgba(8,4,18,.6) 0%,
+                rgba(8,4,18,0) 22%
+              );
+          }
+
+          .auroraCold,
+          .auroraWarm {
+            background-position: center 80%;
+          }
 
           .topLeft {
-            left: 32px;
+            left: 44px;
           }
 
           .topRight {
-            right: 32px;
+            right: 44px;
+          }
+
+          .bottomNav {
+            left: 44px;
+          }
+
+          .rec {
+            right: 44px;
           }
         }
 
-        /* =====================================
-           MOBILE
-        ===================================== */
+        @media (max-width: 600px) {
 
-        @media (max-width: 768px) {
+          .frame {
+            inset: 12px;
+          }
+
+          .fc {
+            width: 14px;
+            height: 14px;
+          }
 
           .intro {
-            padding: 76px 20px 84px;
+            padding: 84px 22px 76px;
           }
 
           .topLeft {
-            top: 22px;
-            left: 20px;
+            top: 26px;
+            left: 26px;
 
             gap: 8px;
 
@@ -1284,8 +1431,8 @@ export default function Intro() {
           }
 
           .topRight {
-            top: 20px;
-            right: 20px;
+            top: 22px;
+            right: 26px;
 
             font-size: 6.5px;
             letter-spacing: 2px;
@@ -1295,12 +1442,23 @@ export default function Intro() {
             gap: 6px;
           }
 
-          .title {
-            font-size: clamp(3.4rem, 17vw, 5.4rem);
+          .header {
+            --cell: 5px;
+
+            gap: 16px;
+            margin-bottom: 18px;
           }
 
-          .story {
-            min-height: 150px;
+          .dayBlock {
+            width: min(220px, 52vw);
+          }
+
+          .dayNum {
+            font-size: 28px;
+          }
+
+          .title {
+            font-size: clamp(3.4rem, 17vw, 5.2rem);
           }
 
           .storyLine {
@@ -1320,13 +1478,19 @@ export default function Intro() {
           }
 
           .quote {
-            max-width: 90%;
             font-size: 1rem;
           }
 
           .bottomNav {
-            left: 20px;
-            bottom: 20px;
+            left: 26px;
+            bottom: 24px;
+
+            font-size: 7px;
+          }
+
+          .rec {
+            right: 26px;
+            bottom: 24px;
 
             font-size: 7px;
           }
@@ -1340,7 +1504,9 @@ export default function Intro() {
           .auroraCold,
           .auroraWarm,
           .statusDot,
-          .coreRipple,
+          .win.flick,
+          .win.lit,
+          .recDot,
           .ctaInner::before,
           .ctaInner::after,
           .ctaHeart,
